@@ -3,7 +3,6 @@
 
 from flask import Flask, request, redirect, url_for, flash, render_template
 from flask_oauthlib.client import OAuth
-import jinja2
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -19,8 +18,8 @@ twitter = oauth.remote_app('twitter',
     request_token_url='https://api.twitter.com/oauth/request_token',
     access_token_url='https://api.twitter.com/oauth/access_token',
     authorize_url='https://api.twitter.com/oauth/authenticate',
-    consumer_key='QZinmSelXC9lB1LbKoP3Tf7Xe',
-    consumer_secret='e7OOtWqU7Ak17Gy8aVPaV1kaec7vtd921GgAE67y3g7waLoCSo'
+    consumer_key='Yn8j64BqsI3VdWzyzLDFOfdoe',
+    consumer_secret='GYyd6D0PwuBmIMhMi3ycUkHpTBVbdlO6j7MSeDir2NW3iRXUTh'
 )
 
 
@@ -72,6 +71,7 @@ def logout():
     global mySession
     
     mySession = None
+    flash('Ya no estas logeado', 'message')
     return redirect(url_for('index'))
 
 
@@ -82,9 +82,10 @@ def oauthorized():
     
     resp = twitter.authorized_response()
     if resp is None:
-        flash('You denied the request to sign in.')
+        flash('You denied the request to sign in.', 'error')
     else:
         mySession = resp
+        flash('Estas logeado', 'message')
     return redirect(url_for('index', next=request.args.get('next')))
 
 
@@ -99,33 +100,75 @@ def deleteTweet():
 
 @app.route('/retweet', methods=['POST'])
 def retweet():
+    global currentUser
+
+    if currentUser is None:
+        return redirect(url_for('login'))
+
+    retweetID = request.form['retweetID']
+    url = 'statuses/retweet/{}.json'.format(retweetID)
+    print(url)
+    resp = twitter.post(url)
+
+    if resp.status == 200:
+        flash('Se ha retuiteado el tuit!!', 'message')
     return redirect(url_for('index'))
 
 
 @app.route('/follow', methods=['POST'])
 def follow():
+    global currentUser
+
+    if currentUser is None:
+        return redirect(url_for('login'))
+
+    userID = request.form['userID']
+    userName = request.form['userName']
+
+    print(userID, userName)
+
+
+    #if userID is not None and userName is None:
+    print('Antes de la peticion')
+    respID = twitter.post('friendship/create.json', data={
+        'screen_id': userName
+    })
+    print('Despues de la peticion')
+    print(respID.status)
+    if respID.status == 200:
+        print('Dentro del if')
+        flash('Estas siguiendo a {}'.format(userName), 'message')
+    print('todo oc')
+    #elif userName is not None and userID is None:
+        #respName = twitter.post('friendship/create.json', data={
+            #'screen_name': userName
+       # })
+       # if respName.status == 200:
+          #  flash('Acabas de seguir a {}'.format(userName), 'message')
     return redirect(url_for('index'))
     
 
     
 @app.route('/tweet', methods=['POST'])
 def tweet():
+    global currentUser
     # Paso 1: Si no estoy logueado redirigir a pagina de /login
                # Usar currentUser y redirect
-    if currentUser == None:
+    if currentUser is None:
         return redirect(url_for('login'))
 
     # Paso 2: Obtener los datos a enviar
                # Usar request (form)
-    data = request.form['tweetText']
-
+    status = request.form['tweetText']
     # Paso 3: Construir el request a enviar con los datos del paso 2
                # Utilizar alguno de los metodos de la instancia twitter (post, request, get, ...)
-    twitter.post('status/update.json?status{0}'.format(data))
-
+    resp = twitter.post('statuses/update.json', data={
+        'status': status
+    })
     # Paso 4: Comprobar que todo fue bien (no hubo errores) e informar al usuario
                # La anterior llamada devuelve el response, mirar el estado (status)
-
+    if resp.status == 200:
+        flash('Tweet enviado!', 'message')
     # Paso 5: Redirigir a pagina principal (hecho)
     return redirect(url_for('index'))
 
