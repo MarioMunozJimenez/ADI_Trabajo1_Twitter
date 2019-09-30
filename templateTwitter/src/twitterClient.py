@@ -94,6 +94,19 @@ def oauthorized():
 # Operaciones
 @app.route('/deleteTweet', methods=['POST'])
 def deleteTweet():
+    global currentUser
+
+    if currentUser is None:
+        return redirect(url_for('login'))
+
+    deleteID = request.form['deleteID']
+
+    resp = twitter.post('statuses/destroy.json', data={
+        'id': deleteID
+    })
+
+    if resp.status is 200:
+        flash('Has borrado el tweet!', 'message')
     return redirect(url_for('index'))
 
 
@@ -106,9 +119,9 @@ def retweet():
         return redirect(url_for('login'))
 
     retweetID = request.form['retweetID']
-    url = 'statuses/retweet/{}.json'.format(retweetID)
-    print(url)
-    resp = twitter.post(url)
+    resp = twitter.post('statuses/retweet.json', data={
+        'id': retweetID
+    })
 
     if resp.status == 200:
         flash('Se ha retuiteado el tuit!!', 'message')
@@ -125,28 +138,36 @@ def follow():
     userID = request.form['userID']
     userName = request.form['userName']
 
-    print(userID, userName)
+    if userID is "" and userName is "":
+        flash('Ambos estan vacios', 'error')
+    elif userID is not "" and userName is "":
+        respID = twitter.post('friendships/create.json', data={
+            'user_id': userID
+        })
+        if respID.status is 200:
+            flash('Acabas de seguir al ususario con id {}'.format(userID), 'message')
+        elif respID.status is 404:
+            flash('Error al seguir al usuario con ID {}'.format(userID), 'error')
 
+    elif userID is "" and userName is not "":
+        respName = twitter.post('friendships/create.json', data={
+            'screen_name': userName
+        })
+        if respName.status is 200:
+            flash('Acabas de seguir al ususario {}'.format(userName), 'message')
+        elif respName.status is 404:
+            flash('Error al seguir al usuario {}'.format(userName), 'error')
 
-    #if userID is not None and userName is None:
-    print('Antes de la peticion')
-    respID = twitter.post('friendship/create.json', data={
-        'screen_id': userName
-    })
-    print('Despues de la peticion')
-    print(respID.status)
-    if respID.status == 200:
-        print('Dentro del if')
-        flash('Estas siguiendo a {}'.format(userName), 'message')
-    print('todo oc')
-    #elif userName is not None and userID is None:
-        #respName = twitter.post('friendship/create.json', data={
-            #'screen_name': userName
-       # })
-       # if respName.status == 200:
-          #  flash('Acabas de seguir a {}'.format(userName), 'message')
+    else:
+        respID = twitter.post('friendships/create.json', data={
+            'user_id': userID
+        })
+        if respID.status is 200:
+            flash('Acabas de seguir al ususario con id {}'.format(userID), 'message')
+        elif respID.status is 404:
+            flash('Error al seguir al usuario con ID {}'.format(userID), 'error')
+            
     return redirect(url_for('index'))
-    
 
     
 @app.route('/tweet', methods=['POST'])
@@ -178,5 +199,3 @@ def tweet():
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5005)
-
-
