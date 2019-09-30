@@ -3,6 +3,7 @@
 
 from flask import Flask, request, redirect, url_for, flash, render_template
 from flask_oauthlib.client import OAuth
+import jinja2
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -18,8 +19,8 @@ twitter = oauth.remote_app('twitter',
     request_token_url='https://api.twitter.com/oauth/request_token',
     access_token_url='https://api.twitter.com/oauth/access_token',
     authorize_url='https://api.twitter.com/oauth/authenticate',
-    consumer_key='YOUR-CONSUMER-KEY',
-    consumer_secret='YOUR-CONSUMER-SECRET'
+    consumer_key='QZinmSelXC9lB1LbKoP3Tf7Xe',
+    consumer_secret='e7OOtWqU7Ak17Gy8aVPaV1kaec7vtd921GgAE67y3g7waLoCSo'
 )
 
 
@@ -111,12 +112,16 @@ def follow():
 def tweet():
     # Paso 1: Si no estoy logueado redirigir a pagina de /login
                # Usar currentUser y redirect
+    if currentUser == None:
+        return redirect(url_for('login'))
 
     # Paso 2: Obtener los datos a enviar
                # Usar request (form)
+    data = request.form['tweetText']
 
     # Paso 3: Construir el request a enviar con los datos del paso 2
                # Utilizar alguno de los metodos de la instancia twitter (post, request, get, ...)
+    twitter.post('status/update.json?status{0}'.format(data))
 
     # Paso 4: Comprobar que todo fue bien (no hubo errores) e informar al usuario
                # La anterior llamada devuelve el response, mirar el estado (status)
