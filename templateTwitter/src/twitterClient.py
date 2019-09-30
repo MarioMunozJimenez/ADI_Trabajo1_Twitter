@@ -13,6 +13,7 @@ currentUser=None
 app.secret_key = 'development'
 
 
+
 twitter = oauth.remote_app('twitter',
     base_url='https://api.twitter.com/1.1/',
     request_token_url='https://api.twitter.com/oauth/request_token',
