@@ -1,8 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8; mode: python -*-
-
+import requests
 from flask import Flask, request, redirect, url_for, flash, render_template
 from flask_oauthlib.client import OAuth
+from requests_oauthlib import OAuth1
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -12,8 +13,6 @@ currentUser=None
 
 app.secret_key = 'development'
 
-
-
 twitter = oauth.remote_app('twitter',
     base_url='https://api.twitter.com/1.1/',
     request_token_url='https://api.twitter.com/oauth/request_token',
@@ -22,6 +21,9 @@ twitter = oauth.remote_app('twitter',
     consumer_key='Yn8j64BqsI3VdWzyzLDFOfdoe',
     consumer_secret='GYyd6D0PwuBmIMhMi3ycUkHpTBVbdlO6j7MSeDir2NW3iRXUTh'
 )
+
+consumer_key = 'Yn8j64BqsI3VdWzyzLDFOfdoe'
+consumer_key_secret = 'GYyd6D0PwuBmIMhMi3ycUkHpTBVbdlO6j7MSeDir2NW3iRXUTh'
 
 
 # Obtener token para esta sesion
@@ -87,9 +89,8 @@ def oauthorized():
     else:
         mySession = resp
         flash('Estas logeado', 'message')
+
     return redirect(url_for('index', next=request.args.get('next')))
-
-
 
 
 # Operaciones
@@ -102,11 +103,14 @@ def deleteTweet():
 
     deleteID = request.form['deleteID']
 
-    resp = twitter.post('statuses/destroy.json', data={
-        'id': deleteID
-    })
+    oauth = OAuth1(consumer_key,
+     client_secret=consumer_key_secret,
+      resource_owner_key=mySession['oauth_token'],
+       resource_owner_secret=mySession['oauth_token_secret'])
 
-    if resp.status is 200:
+    resp = requests.post('https://api.twitter.com/1.1/statuses/destroy.json', data={'id': deleteID}, auth=oauth)
+
+    if resp.status_code is 200:
         flash('Has borrado el tweet!', 'message')
     return redirect(url_for('index'))
 
@@ -115,16 +119,21 @@ def deleteTweet():
 @app.route('/retweet', methods=['POST'])
 def retweet():
     global currentUser
+    global mySession
 
     if currentUser is None:
         return redirect(url_for('login'))
 
-    retweetID = request.form['retweetID']
-    resp = twitter.post('statuses/retweet.json', data={
-        'id': retweetID
-    })
+    oauth = OAuth1(consumer_key,
+     client_secret=consumer_key_secret,
+      resource_owner_key=mySession['oauth_token'],
+       resource_owner_secret=mySession['oauth_token_secret'])
 
-    if resp.status == 200:
+    retweetID = request.form['retweetID']
+
+    resp = requests.post('https://api.twitter.com/1.1/statuses/retweet.json', data={'id': retweetID}, auth=oauth)
+
+    if resp.status_code == 200:
         flash('Se ha retuiteado el tuit!!', 'message')
     return redirect(url_for('index'))
 
@@ -132,40 +141,47 @@ def retweet():
 @app.route('/follow', methods=['POST'])
 def follow():
     global currentUser
+    global mySession
 
     if currentUser is None:
         return redirect(url_for('login'))
 
+    #userName = userName.encode('utf-8')
+
+    oauth = OAuth1(consumer_key,
+     client_secret=consumer_key_secret,
+      resource_owner_key=mySession['oauth_token'],
+       resource_owner_secret=mySession['oauth_token_secret'])
+
     userID = request.form['userID']
     userName = request.form['userName']
 
-    if userID is "" and userName is "":
+    if not userID and not userName:
         flash('Ambos estan vacios', 'error')
-    elif userID is not "" and userName is "":
-        respID = twitter.post('friendships/create.json', data={
-            'user_id': userID
-        })
-        if respID.status is 200:
+    elif userID and not userName:
+        respID = requests.post('https://api.twitter.com/1.1/friendships/create.json', data={'user_id': userID}, auth=oauth)
+
+        if respID.status_code is 200:
             flash('Acabas de seguir al ususario con id {}'.format(userID), 'message')
-        elif respID.status is 404:
+        elif respID.status_code is 404:
             flash('Error al seguir al usuario con ID {}'.format(userID), 'error')
 
-    elif userID is "" and userName is not "":
-        respName = twitter.post('friendships/create.json', data={
-            'screen_name': userName
-        })
-        if respName.status is 200:
+    elif not userID and userName:
+        respName = requests.post('https://api.twitter.com/1.1/friendships/create.json', data={'screen_name': userName}, auth=oauth)
+
+        print(respName.status_code)
+
+        if respName.status_code is 200:
             flash('Acabas de seguir al ususario {}'.format(userName), 'message')
-        elif respName.status is 404:
+        elif respName.status_code is 404:
             flash('Error al seguir al usuario {}'.format(userName), 'error')
 
     else:
-        respID = twitter.post('friendships/create.json', data={
-            'user_id': userID
-        })
-        if respID.status is 200:
+        respID = requests.post('https://api.twitter.com/1.1/friendships/create.json', data={'user_id': userID}, auth=oauth)
+
+        if respID.status_code is 200:
             flash('Acabas de seguir al ususario con id {}'.format(userID), 'message')
-        elif respID.status is 404:
+        elif respID.status_code is 404:
             flash('Error al seguir al usuario con ID {}'.format(userID), 'error')
             
     return redirect(url_for('index'))
@@ -174,29 +190,26 @@ def follow():
 @app.route('/tweet', methods=['POST'])
 def tweet():
     global currentUser
-    # Paso 1: Si no estoy logueado redirigir a pagina de /login
-               # Usar currentUser y redirect
+    global mySession
+    global method
+    
     if currentUser is None:
         return redirect(url_for('login'))
 
-    # Paso 2: Obtener los datos a enviar
-               # Usar request (form)
-    status = request.form['tweetText']
-    # Paso 3: Construir el request a enviar con los datos del paso 2
-               # Utilizar alguno de los metodos de la instancia twitter (post, request, get, ...)
-    resp = twitter.post('statuses/update.json', data={
-        'status': status
-    })
-    # Paso 4: Comprobar que todo fue bien (no hubo errores) e informar al usuario
-               # La anterior llamada devuelve el response, mirar el estado (status)
-    if resp.status == 200:
+    oauth = OAuth1(consumer_key,
+     client_secret=consumer_key_secret,
+      resource_owner_key=mySession['oauth_token'],
+       resource_owner_secret=mySession['oauth_token_secret'])
+
+    statusTweet = request.form['tweetText']
+    resp = requests.post('https://api.twitter.com/1.1/statuses/update.json', data={'status': statusTweet}, auth=oauth)
+   
+    if resp.status_code == 200:
         flash('Tweet enviado!', 'message')
-    # Paso 5: Redirigir a pagina principal (hecho)
+    else:
+        flash('No se ha podido enviar el tweet', 'error')
+
     return redirect(url_for('index'))
-
-
-
-
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5005)
